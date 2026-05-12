@@ -11,19 +11,23 @@ export default function MyPage() {
   const [likedProducts, setLikedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    Promise.all([
-      api.getProducts({ limit: 100 }),
-      api.getMyLikes(),
-    ]).then(([productsRes, likesRes]) => {
-      setMyProducts(productsRes.products.filter(p => p.uploaderId === user.id));
-      setLikedProducts(likesRes.products);
-    }).finally(() => setLoading(false));
-  }, [user, navigate]);
+useEffect(() => {
+  if (!user) {
+    navigate('/login');
+    return;
+  }
+  Promise.all([
+    api.getProducts({ limit: 100 }),
+    api.getMyLikes(),
+  ]).then(([productsRes, likesRes]) => {
+    const myProds = productsRes.products.filter(p => {
+      const uploaderId = typeof p.uploaderId === 'object' ? p.uploaderId._id : p.uploaderId;
+      return uploaderId === user.id;
+    });
+    setMyProducts(myProds);
+    setLikedProducts(likesRes.products);
+  }).finally(() => setLoading(false));
+}, [user, navigate]);
 
   if (!user) return null;
 
