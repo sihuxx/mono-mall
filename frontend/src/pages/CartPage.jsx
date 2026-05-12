@@ -1,14 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Minus, Trash2 } from 'lucide-react';
+import { Plus, Minus, Trash2, Coins } from 'lucide-react';
+import { api } from '../utils/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
+import { useToast } from '../context/ToastContext.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 
 export default function CartPage() {
-  const { user } = useAuth();
-  const { cart, updateQty, removeItem } = useCart();
+  const { user, refreshUser } = useAuth();
+  const { cart, updateQty, removeItem, refreshCart } = useCart();
+  const { showToast } = useToast();
   const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -18,6 +22,30 @@ export default function CartPage() {
 
   const cartItems = (cart.items || []).filter(i => i.productId);
   const total = cartItems.reduce((sum, i) => sum + (i.productId.price * i.qty), 0);
+  const userCoins = user.coins || 0;
+  const canCheckout = userCoins >= total && cartItems.length > 0;
+  const shortage = total - userCoins;
+
+  const handleCheckout = async () => {
+    if (!canCheckout) {
+      showToast(`코인이 ${shortage.toLocaleString()}개 부족합니다`);
+      return;
+    }
+    if (!confirm(`${total.toLocaleString()} 코인으로 결제하시겠습니까?`)) return;
+
+    setSubmitting(true);
+    try {
+      const { order, remainingCoins } = await api.checkout();
+      showToast('결제가 완료되었습니다');
+      await refreshUser();
+      await refreshCart();
+      navigate(`/orders/${order._id}`);
+    } catch (err) {
+      showToast(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="py-12">
@@ -50,7 +78,10 @@ export default function CartPage() {
                     </p>
                   )}
                   <h3 className="text-sm font-medium mb-1">{item.productId.title}</h3>
-                  <p className="text-sm mb-auto">₩{Number(item.productId.price).toLocaleString()}</p>
+                  <p className="text-sm mb-auto flex items-center gap-1">
+                    <Coins size={11} strokeWidth={1.5} />
+                    {Number(item.productId.price).toLocaleString()}
+                  </p>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center border border-neutral-200">
                       <button onClick={() => updateQty(item.productId._id, item.qty - 1)} className="px-2 py-1 hover:bg-neutral-50">
@@ -71,12 +102,32 @@ export default function CartPage() {
           </div>
 
           <div className="lg:col-span-1">
-            <div className="bg-neutral-50 p-6">
+            <div className="bg-neutral-50 p-6 sticky top-20">
               <h2 className="text-lg tracking-wide mb-6">Order Summary</h2>
+
+              {/* 코인 정보 */}
+              <div className="bg-white border border-neutral-200 p-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs tracking-wider text-neutral-500">보유 코인</span>
+                  <span className="text-sm font-medium flex items-center gap-1">
+                    <Coins size={12} strokeWidth={1.5} />
+                    {userCoins.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs tracking-wider text-neutral-500">결제 후 잔액</span>
+                  <span className={`text-sm font-medium ${canCheckout ? 'text-neutral-900' : 'text-red-500'}`}>
+                    {canCheckout
+                      ? `${(userCoins - total).toLocaleString()} 코인`
+                      : `-${shortage.toLocaleString()} 부족`}
+                  </span>
+                </div>
+              </div>
+
               <div className="space-y-3 text-sm border-b border-neutral-200 pb-4 mb-4">
                 <div className="flex justify-between text-neutral-600">
                   <span>Subtotal</span>
-                  <span>₩{total.toLocaleString()}</span>
+                  <span>{total.toLocaleString()} 코인</span>
                 </div>
                 <div className="flex justify-between text-neutral-600">
                   <span>Shipping</span>
@@ -85,17 +136,25 @@ export default function CartPage() {
               </div>
               <div className="flex justify-between font-medium mb-6">
                 <span>Total</span>
-                <span>₩{total.toLocaleString()}</span>
+                <span className="flex items-center gap-1">
+                  <Coins size={14} strokeWidth={1.5} />
+                  {total.toLocaleString()}
+                </span>
               </div>
+
               <button
-                disabled
-                className="w-full bg-neutral-300 text-white py-4 text-xs tracking-[0.2em] cursor-not-allowed"
+                onClick={handleCheckout}
+                disabled={!canCheckout || submitting}
+                className="w-full bg-black text-white py-4 text-xs tracking-[0.2em] hover:bg-neutral-800 transition disabled:bg-neutral-300 disabled:cursor-not-allowed"
               >
-                CHECKOUT (3단계 예정)
+                {submitting ? 'PROCESSING...' : canCheckout ? 'CHECKOUT' : '코인 부족'}
               </button>
-              <p className="text-[10px] text-neutral-400 mt-3 text-center tracking-wider">
-                결제 기능은 3단계 코인 시스템과 함께 추가됩니다
-              </p>
+
+              {!canCheckout && cartItems.length > 0 && (
+                <p className="text-[10px] text-neutral-500 mt-3 text-center tracking-wider">
+                  관리자에게 코인 충전을 요청하세요
+                </p>
+              )}
             </div>
           </div>
         </div>
