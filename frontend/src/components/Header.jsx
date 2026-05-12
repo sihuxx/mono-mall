@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, LogOut, Menu } from 'lucide-react';
+import { ShoppingBag, LogOut, Menu, Coins, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 
@@ -17,6 +17,7 @@ export default function Header() {
   };
 
   const close = () => setMenuOpen(false);
+  const isAdmin = user?.role === 'admin';
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-neutral-100">
@@ -30,9 +31,20 @@ export default function Header() {
             <Link to="/" className="hover:text-black transition">HOME</Link>
             <Link to="/shop" className="hover:text-black transition">SHOP</Link>
             {user && <Link to="/upload" className="hover:text-black transition">UPLOAD</Link>}
+            {isAdmin && (
+              <Link to="/admin" className="hover:text-black transition flex items-center gap-1">
+                <Shield size={12} strokeWidth={1.5} /> ADMIN
+              </Link>
+            )}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {user && (
+              <Link to="/mypage" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-neutral-50 rounded-full text-xs tracking-wider hover:bg-neutral-100 transition">
+                <Coins size={12} strokeWidth={1.5} />
+                <span className="font-medium">{Number(user.coins || 0).toLocaleString()}</span>
+              </Link>
+            )}
             <Link to={user ? '/cart' : '/login'} className="relative p-2 hover:bg-neutral-50 rounded-full transition">
               <ShoppingBag size={18} strokeWidth={1.5} />
               {itemCount > 0 && (
@@ -65,12 +77,20 @@ export default function Header() {
       {menuOpen && (
         <div className="md:hidden border-t border-neutral-100 bg-white">
           <div className="px-6 py-4 flex flex-col gap-3 text-sm tracking-wider">
+            {user && (
+              <div className="flex items-center gap-2 py-2 pb-3 border-b border-neutral-100">
+                <Coins size={14} strokeWidth={1.5} />
+                <span className="font-medium">{Number(user.coins || 0).toLocaleString()} 코인</span>
+              </div>
+            )}
             <Link to="/" onClick={close} className="py-2">HOME</Link>
             <Link to="/shop" onClick={close} className="py-2">SHOP</Link>
             {user && <Link to="/upload" onClick={close} className="py-2">UPLOAD</Link>}
+            {isAdmin && <Link to="/admin" onClick={close} className="py-2 flex items-center gap-1"><Shield size={12} /> ADMIN</Link>}
             {user ? (
               <>
                 <Link to="/mypage" onClick={close} className="py-2">{user.username}</Link>
+                <Link to="/orders" onClick={close} className="py-2">주문내역</Link>
                 <button onClick={handleLogout} className="text-left py-2 text-neutral-500">LOGOUT</button>
               </>
             ) : (
