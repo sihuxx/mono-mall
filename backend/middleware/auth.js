@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 export const protect = (req, res, next) => {
   let token;
@@ -27,9 +28,20 @@ export const optionalAuth = (req, res, next) => {
   if (token) {
     try {
       req.user = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-      // 무시
-    }
+    } catch (err) {}
   }
   next();
+};
+
+// 관리자 권한 체크 (DB 직접 조회 - 권한 변경 즉시 반영)
+export const adminOnly = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: '관리자 권한이 필요합니다' });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };

@@ -54,6 +54,21 @@ export const api = {
   addToCart: (data) => request('/cart/add', { method: 'POST', body: JSON.stringify(data) }),
   updateCart: (data) => request('/cart/update', { method: 'PATCH', body: JSON.stringify(data) }),
   removeFromCart: (productId) => request(`/cart/item/${productId}`, { method: 'DELETE' }),
+
+  // Coins
+  getCoinBalance: () => request('/coins/balance'),
+  getCoinTransactions: () => request('/coins/transactions'),
+
+  // Admin (Coins)
+  adminGetUsers: () => request('/coins/admin/users'),
+  adminChargeCoins: (data) => request('/coins/admin/charge', { method: 'POST', body: JSON.stringify(data) }),
+  adminDeductCoins: (data) => request('/coins/admin/deduct', { method: 'POST', body: JSON.stringify(data) }),
+  adminUpdateRole: (userId, role) => request(`/coins/admin/role/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+
+  // Orders
+  checkout: () => request('/orders/checkout', { method: 'POST' }),
+  getOrders: () => request('/orders'),
+  getOrder: (id) => request(`/orders/${id}`),
 };
 
 export const setToken = (token) => localStorage.setItem('mono_token', token);

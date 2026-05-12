@@ -53,8 +53,16 @@ export function AuthProvider({ children }) {
     showToast('로그아웃 되었습니다');
   };
 
+  // 코인 잔액 갱신
+  const refreshUser = async () => {
+    try {
+      const { user } = await api.me();
+      setUser(user);
+    } catch (err) {}
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
