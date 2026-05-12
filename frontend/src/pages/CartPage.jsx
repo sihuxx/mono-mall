@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Minus, Trash2, Coins } from 'lucide-react';
+import { Plus, Minus, Trash2, Coins, MapPin, Phone, User } from 'lucide-react';
 import { api } from '../utils/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
@@ -12,7 +12,16 @@ export default function CartPage() {
   const { cart, updateQty, removeItem, refreshCart } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  
   const [submitting, setSubmitting] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [shippingInfo, setShippingInfo] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    zipcode: '',
+    memo: '',
+  });
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -26,20 +35,41 @@ export default function CartPage() {
   const canCheckout = userCoins >= total && cartItems.length > 0;
   const shortage = total - userCoins;
 
-  const handleCheckout = async () => {
+  const openCheckoutModal = () => {
     if (!canCheckout) {
       showToast(`코인이 ${shortage.toLocaleString()}개 부족합니다`);
       return;
     }
-    if (!confirm(`${total.toLocaleString()} 코인으로 결제하시겠습니까?`)) return;
+    setShippingInfo({
+      name: user.username || '',
+      phone: '',
+      address: '',
+      zipcode: '',
+      memo: '',
+    });
+    setShowCheckoutModal(true);
+  };
+
+  const handleCheckout = async (e) => {
+    e.preventDefault();
+    
+    if (!shippingInfo.name || !shippingInfo.phone || !shippingInfo.address) {
+      showToast('배송 정보를 모두 입력해주세요');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const { order, remainingCoins } = await api.checkout();
-      showToast('결제가 완료되었습니다');
+      const { order } = await api.checkout();
+      showToast('결제가 완료되었습니다! 🎉');
+      setShowCheckoutModal(false);
       await refreshUser();
       await refreshCart();
-      navigate(`/orders/${order._id}`);
+      
+      // 주문 완료 페이지로 이동
+      setTimeout(() => {
+        navigate('/orders');
+      }, 1000);
     } catch (err) {
       showToast(err.message);
     } finally {
@@ -60,6 +90,7 @@ export default function CartPage() {
         />
       ) : (
         <div className="grid lg:grid-cols-3 gap-12">
+          {/* 상품 목록 */}
           <div className="lg:col-span-2 space-y-6">
             {cartItems.map(item => (
               <div key={item.productId._id} className="flex gap-4 md:gap-6 pb-6 border-b border-neutral-100">
@@ -101,6 +132,7 @@ export default function CartPage() {
             ))}
           </div>
 
+          {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-neutral-50 p-6 sticky top-20">
               <h2 className="text-lg tracking-wide mb-6">Order Summary</h2>
@@ -143,11 +175,11 @@ export default function CartPage() {
               </div>
 
               <button
-                onClick={handleCheckout}
+                onClick={openCheckoutModal}
                 disabled={!canCheckout || submitting}
                 className="w-full bg-black text-white py-4 text-xs tracking-[0.2em] hover:bg-neutral-800 transition disabled:bg-neutral-300 disabled:cursor-not-allowed"
               >
-                {submitting ? 'PROCESSING...' : canCheckout ? 'CHECKOUT' : '코인 부족'}
+                {canCheckout ? 'CHECKOUT' : '코인 부족'}
               </button>
 
               {!canCheckout && cartItems.length > 0 && (
@@ -156,6 +188,135 @@ export default function CartPage() {
                 </p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 결제 모달 */}
+      {showCheckoutModal && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+          onClick={() => setShowCheckoutModal(false)}
+        >
+          <div 
+            className="bg-white max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-neutral-100 px-8 py-6">
+              <p className="text-xs tracking-[0.3em] text-neutral-500 mb-2">CHECKOUT</p>
+              <h2 className="text-2xl font-light tracking-tight">배송 정보</h2>
+            </div>
+
+            <form onSubmit={handleCheckout} className="p-8 space-y-6">
+              {/* 수령인 */}
+              <div>
+                <label className="flex items-center gap-2 text-xs tracking-[0.2em] text-neutral-500 mb-3">
+                  <User size={12} strokeWidth={1.5} />
+                  수령인
+                </label>
+                <input
+                  type="text"
+                  value={shippingInfo.name}
+                  onChange={(e) => setShippingInfo({ ...shippingInfo, name: e.target.value })}
+                  className="w-full border-b border-neutral-200 py-3 outline-none focus:border-black transition text-sm"
+                  placeholder="이름"
+                  required
+                />
+              </div>
+
+              {/* 연락처 */}
+              <div>
+                <label className="flex items-center gap-2 text-xs tracking-[0.2em] text-neutral-500 mb-3">
+                  <Phone size={12} strokeWidth={1.5} />
+                  연락처
+                </label>
+                <input
+                  type="tel"
+                  value={shippingInfo.phone}
+                  onChange={(e) => setShippingInfo({ ...shippingInfo, phone: e.target.value })}
+                  className="w-full border-b border-neutral-200 py-3 outline-none focus:border-black transition text-sm"
+                  placeholder="010-0000-0000"
+                  required
+                />
+              </div>
+
+              {/* 우편번호 */}
+              <div>
+                <label className="flex items-center gap-2 text-xs tracking-[0.2em] text-neutral-500 mb-3">
+                  <MapPin size={12} strokeWidth={1.5} />
+                  우편번호
+                </label>
+                <input
+                  type="text"
+                  value={shippingInfo.zipcode}
+                  onChange={(e) => setShippingInfo({ ...shippingInfo, zipcode: e.target.value })}
+                  className="w-full border-b border-neutral-200 py-3 outline-none focus:border-black transition text-sm"
+                  placeholder="12345"
+                />
+              </div>
+
+              {/* 주소 */}
+              <div>
+                <label className="text-xs tracking-[0.2em] text-neutral-500 mb-3 block">
+                  배송 주소
+                </label>
+                <textarea
+                  value={shippingInfo.address}
+                  onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
+                  className="w-full border border-neutral-200 p-4 outline-none focus:border-black transition text-sm resize-none"
+                  placeholder="상세 주소를 입력해주세요"
+                  rows={3}
+                  required
+                />
+              </div>
+
+              {/* 배송 메모 */}
+              <div>
+                <label className="text-xs tracking-[0.2em] text-neutral-500 mb-3 block">
+                  배송 메모 (선택)
+                </label>
+                <input
+                  type="text"
+                  value={shippingInfo.memo}
+                  onChange={(e) => setShippingInfo({ ...shippingInfo, memo: e.target.value })}
+                  className="w-full border-b border-neutral-200 py-3 outline-none focus:border-black transition text-sm"
+                  placeholder="예: 부재 시 문 앞에 놓아주세요"
+                />
+              </div>
+
+              {/* 결제 정보 요약 */}
+              <div className="bg-neutral-50 p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutral-600">결제 금액</span>
+                  <span className="font-medium flex items-center gap-1">
+                    <Coins size={12} strokeWidth={1.5} />
+                    {total.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-neutral-500">
+                  <span>결제 후 잔액</span>
+                  <span>{(userCoins - total).toLocaleString()} 코인</span>
+                </div>
+              </div>
+
+              {/* 버튼 */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCheckoutModal(false)}
+                  className="flex-1 border border-neutral-300 py-4 text-xs tracking-[0.2em] hover:bg-neutral-50 transition"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 bg-black text-white py-4 text-xs tracking-[0.2em] hover:bg-neutral-800 transition disabled:bg-neutral-400"
+                >
+                  {submitting ? 'PROCESSING...' : `${total.toLocaleString()} 코인 결제`}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
